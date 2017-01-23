@@ -14,10 +14,10 @@ library(tikzDevice)
 dir.create("outputs")
 
 #### CHOOSE WHETHER TO USE PRE-STORED VALUES OR RECOMPUTE THINGS####
-COMPUTE_ISO_POSTERIORS <- FALSE  # if false then it will just load these up from a cache
-RECOMPUTE_MHIA_GRID <- FALSE
-RECOMPUTE_PMGCD_GRID <- FALSE
-REMAKE_ALL_SUPP_MAPS <- FALSE
+COMPUTE_ISO_POSTERIORS <- TRUE  # if false then it will just load these up from a cache
+RECOMPUTE_MHIA_GRID <- TRUE
+RECOMPUTE_PMGCD_GRID <- TRUE
+REMAKE_ALL_SUPP_MAPS <- TRUE
 
 #### SOME HOUSEKEEPING VARIABLES ####
 # these are cleaner labels for the regions to be used in forcats functions:
