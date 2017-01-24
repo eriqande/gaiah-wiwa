@@ -1,10 +1,10 @@
 gaiah-wiwa
 ================
-23 January, 2017
+24 January, 2017
 
 -   [Preliminaries](#preliminaries)
 -   [Running the analyses](#running-the-analyses)
--   [Getting figures for the publication](#getting-figures-for-the-publication)
+-   [Transferring figures for the publication](#transferring-figures-for-the-publication)
 -   [Making supplement 1](#making-supplement-1)
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -19,7 +19,25 @@ First, you gotta get the `gaiah` R package. Hopefully that will be up on CRAN so
 devtools::install_github("eriqande/gaiah")
 ```
 
-Then make sure that you have all the necesary packages. Here they are, listed in their `library` calls:
+By the way, this is known to run on `gaiah` commit c63cce5f63d49ce8010fd560cb2394df6fb96c8e.
+
+Just in case `devtools::install_github()` doesn't recursively get all the dependencies, you may as well install them all afresh like this:
+
+``` r
+install.packages(c("dplyr", 
+                   "geosphere", 
+                   "ggplot2", 
+                   "lazyeval", 
+                   "magrittr", 
+                   "maptools", 
+                   "raster", 
+                   "rgeos", 
+                   "sp", 
+                   "stringr", 
+                   "tidyr"))
+```
+
+Then make sure that you have all the necesary additional packages to run the analysis. Here they are, listed in their `library` calls:
 
     #> library(grid)
     #> library(gridExtra)
@@ -31,7 +49,13 @@ Then make sure that you have all the necesary packages. Here they are, listed in
     #> library(forcats)
     #> library(tikzDevice)
 
-The `tikzDevice` package is there for putting nice LaTeX typesetting on the figures.
+So, you can get all those like this:
+
+``` r
+install.packages(c("grid", "gridExtra", "forcats", "tikzDevice"))
+```
+
+The `tikzDevice` package is there for putting nice LaTeX typesetting on the figures. In fact, some of the code in `R-main/01-wiwa-analysis.R` makes system calls to LaTeX to typeset those figures, so if you want reproduce everything entirely, you are going to need `pdflatex` on your system path and the capacity for `R` to make calls using the `system()` function.
 
 Running the analyses
 --------------------
@@ -48,12 +72,12 @@ REMAKE_ALL_SUPP_MAPS <- TRUE
 RECOMPUTE_PMGCD_GRID <- TRUE
 ```
 
-The intermediate files that are produced in each of these sections that are as follows, along with the approximate compute time:
+The intermediate files that are produced in each of the relevant code sections are as follows, along with the approximate compute time:
 
-<table style="width:54%;">
+<table style="width:100%;">
 <colgroup>
-<col width="15%" />
-<col width="18%" />
+<col width="22%" />
+<col width="56%" />
 <col width="20%" />
 </colgroup>
 <thead>
@@ -82,10 +106,12 @@ The intermediate files that are produced in each of these sections that are as f
 </tbody>
 </table>
 
-Getting figures for the publication
------------------------------------
+Setting each of those flags to FALSE (once the intermediate files in `R-main/01-wiwa-analysis.R` makes it possible to get through the whole analysis in about 2 to 2.5 minutes on a reasonably fast laptop.
 
-I include `R-main/02-move-figures.R` so that the interested can see which figures produced in the previous step get placed in the document itself. In order for this to actually work you will need to have the appropriate TeX source files, etc in the right directory inside `git-overleaf-repos`.
+Transferring figures for the publication
+----------------------------------------
+
+I include `R-main/02-move-figures.R` so that the interested can see which figures produced in the previous step get placed in the document itself. In order for this to actually work you will need to have the appropriate TeX source files, etc in the right directory inside `git-overleaf-repos`. You also need to have `pdfcrop` installed on your system.
 
 Making supplement 1
 -------------------
