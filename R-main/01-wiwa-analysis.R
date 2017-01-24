@@ -16,7 +16,6 @@ dir.create("outputs")
 #### CHOOSE WHETHER TO USE PRE-STORED VALUES OR RECOMPUTE THINGS####
 COMPUTE_ISO_POSTERIORS <- TRUE  # if false then it will just load these up from a cache
 REMAKE_ALL_SUPP_MAPS <- TRUE
-RECOMPUTE_MHIA_GRID <- TRUE
 RECOMPUTE_PMGCD_GRID <- TRUE
 
 
