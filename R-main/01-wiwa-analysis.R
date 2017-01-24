@@ -15,9 +15,10 @@ dir.create("outputs")
 
 #### CHOOSE WHETHER TO USE PRE-STORED VALUES OR RECOMPUTE THINGS####
 COMPUTE_ISO_POSTERIORS <- TRUE  # if false then it will just load these up from a cache
+REMAKE_ALL_SUPP_MAPS <- TRUE
 RECOMPUTE_MHIA_GRID <- TRUE
 RECOMPUTE_PMGCD_GRID <- TRUE
-REMAKE_ALL_SUPP_MAPS <- TRUE
+
 
 #### SOME HOUSEKEEPING VARIABLES ####
 # these are cleaner labels for the regions to be used in forcats functions:
@@ -51,7 +52,7 @@ if(COMPUTE_ISO_POSTERIORS == TRUE) {
                                                       isoscape_sd_column = "stdkrig",
                                                       self_assign = TRUE)
 
-  #save(isotope_ref_bird_results, file = "outputs/isotope_ref_bird_results.rda", compress = "xz")
+  save(isotope_ref_bird_results, file = "outputs/isotope_ref_bird_results.rda", compress = "xz")
 } else {
   load("outputs/isotope_ref_bird_results.rda")
 }
@@ -200,6 +201,7 @@ g <- ggplot(assy3, aes(x = ind, y = posterior, fill = `Region Assigned`)) +
   theme(axis.ticks.x=element_blank())
 
 
+dir.create("outputs/figures", recursive = TRUE)
 ggsave(g, filename = "outputs/figures/gsi_sim_q_values.pdf", width = 14, height = 5)
 
 
@@ -263,8 +265,7 @@ if(REMAKE_ALL_SUPP_MAPS == TRUE) {
     print(i);
   }
 
-  # TODO: PDFConcat all those into a single supplemental file, or
-  # better yet, latex them altogether.
+  # later we will latex them altogether.
 }
 
 
@@ -333,7 +334,7 @@ bplot <- ggplot(pmGCD_super, aes(y = pmgcd, x = data_type, fill = Region)) +
 
 print(bplot)
 dev.off()
-system("cd outputs/figures/; pdflatex pmgcd_boxplots.tex; open pmgcd_boxplots.pdf")
+system("cd outputs/figures/; pdflatex pmgcd_boxplots.tex;")
 
 #### DO CALCULATIONS FOR THE ACTUAL CIBOLA MIGRANTS ####
 # these are for all the migrants kristen had in the first paper
@@ -486,121 +487,3 @@ ggplot(rmp2, aes(x = as.numeric(beta_hab), y = mean_pmgcd, colour = beta_iso, li
 
 ggsave(filename = "outputs/figures/mean_pmgcd_by_betas.pdf", width = 14, height = 10)
 
-#### STUFF BELOW HERE IS NO LONGER ACTIVE ####
-if(FALSE) {
-#### COMPUTE THE MIN-HPD INCLUSION AREAS FOR COMBO AND THE THREE PARTS, SEPARATELY, AND PUT TOGETHER TIDILY ####
-
-# here we have the MHIA for the 1,1,1 comboized data and the isotopes and genetics
-mhia_combo <- min_hpd_inc_area_df(kbirds, Combo)
-mhia_iso <- min_hpd_inc_area_df(kbirds, Miso)
-mhia_gen <- min_hpd_inc_area_df(kbirds, Mgen)
-
-# we do it for habitat here, but need to make a rasterStack first
-Mhab_stack <- lapply(1:nlayers(Combo), function(x) Mhab_norm) %>%
-  setNames(names(Combo)) %>%
-  raster::stack()
-mhia_hab <- min_hpd_inc_area_df(kbirds, Mhab_stack)
-
-# make a tidy data frame of it that will be good for plotting
-mhia_tidy <- mhia_combo$area %>% rename(combo_area = min_hpd_area) %>%
-  left_join(., mhia_iso$area %>% rename(isotopes = min_hpd_area)) %>%
-  left_join(., mhia_gen$area %>% rename(genetics = min_hpd_area)) %>%
-  left_join(., mhia_hab$area %>% rename(habitat = min_hpd_area)) %>%
-  right_join(kbirds %>% select(ID, region, Region, Short_Name), .) %>%
-  tidyr::gather(data = ., key = "data_type", value = "area", isotopes:habitat) %>%
-
-
-
-#### CREATE THE MHIA PLOTS FOR THE PAPER  ####
-dir.create("outputs/figures")
-# here is everyone on the same figure
-ggplot(mhia_tidy, aes(x = combo_area/10^6, y = area/10^6, colour = Region)) +
-  geom_point() +
-  facet_wrap(~ data_type) +
-  geom_abline(slope = 1, intercept = 0) +
-  scale_colour_manual(values = region_colors) +
-  xlab("Minimum HPD area (in millions of sq. km.) using all data sources, combined") +
-  ylab("Minimum HPD area (in millions of sq. km.) using a single data source")
-ggsave("outputs/figures/mhia_altogether.pdf", width = 12, height = 5.5)
-
-
-# and here it is broken out by region for the supplement, maybe
-ggplot(mhia_tidy, aes(x = combo_area, y = area, colour = Region)) +
-  geom_point() +
-  facet_grid(data_type ~ region, scales = "free") +
-  geom_abline(slope = 1, intercept = 0) +
-  xlab("Minimum HPD area using all data sources, combined") +
-  ylab("Minimum HPD area using a single data source") +
-  scale_colour_manual(values = region_colors)
-ggsave("outputs/figures/mhia_by_region.pdf", width = 17, height = 10)
-
-
-
-#### MAKE THE MHIA BOXPLOTS FOR THE PAPER ####
-# further tidy down the mhia_tidy to something super-tidy (with combo as a key)
-mhia_super <- mhia_tidy %>%
-  tidyr::spread(key = data_type, value = area) %>%
-  rename(combo = combo_area) %>%
-  tidyr::gather(., key = "data_type", value = "area", combo, genetics, habitat, isotopes)
-
-# now, we gotta toss the outliers in CentCalCoast genetics and isotopes
-# it is going to be just one in each to make it easier to plot
-mhia_super2 <- mhia_super %>%
-  filter(!(region == "CentCalCoast" & area > 4e06))
-
-ggplot(mhia_super2, aes(y = area, x = data_type, fill = Region)) +
-  facet_wrap(~ Region, scales = "free") +
-  scale_fill_manual(values = region_colors) +
-  geom_boxplot() +
-  xlab("Data type used") +
-  ylab("Minimum HPD area")
-
-ggsave("outputs/figures/mhia_boxplots.pdf", width = 10, height = 7)
-
-#### COMPUTE MEAN MHIA OVER DIFFERENT VALUES OF THE BETAS ####
-if(RECOMPUTE_MHIA_GRID == TRUE) {
-  griddy <- c(0, 0.33, 0.66, 1.0, 1.33, 1.66, 2.0, 2.5)
-  names(griddy) <- griddy
-
-  out <- mclapply(c("1.0" = 1.0), function(bgen) {
-    mclapply(griddy, function(biso) {
-      mclapply(griddy, function(bhab) {
-        print(c(bgen, biso, bhab))
-        min_hpd_inc_area_df(kbirds, comboize(Mgen, Miso, Mhab_norm, beta_gen = bgen, beta_iso = biso, beta_hab = bhab))$area
-      }) %>%
-        dplyr::bind_rows(.id = "beta_hab")
-    }) %>%
-      dplyr::bind_rows(.id = "beta_iso")
-  }) %>% dplyr::bind_rows(.id = "beta_gen")
-
-  #saveRDS(out, file = "outputs/64_vals.rds", compress = "xz")
-} else {
-  out <- readRDS(file = "outputs/64_vals.rds")
-}
-
-# now that we have that, let's get the means for each region
-region_mean_mhia <- kbirds %>%
-  select(region, Short_Name) %>%
-  left_join(., out) %>%
-  group_by(region, beta_gen, beta_iso, beta_hab) %>%
-  summarize(mean_area = mean(min_hpd_area),
-            trimmed10_mean_area = mean(min_hpd_area, trim = 0.10)) %>%
-  ungroup() %>% arrange(region, mean_area)
-
-#### MAKE THE PLOTS OF MEAN MHIA AS A FUNCTION OF THE BETAS ####
-# here is the untrimmed means version
-ggplot(region_mean_mhia, aes(x = beta_hab, y = mean_area, colour = factor(beta_iso), group = factor(beta_iso))) +
-  geom_point() +
-  geom_line() +
-  facet_wrap(~ region, scales = "free")
-
-# here is the trimmed means version
-ggplot(region_mean_mhia, aes(x = beta_hab, y = trimmed10_mean_area, colour = factor(beta_iso), group = factor(beta_iso))) +
-  geom_point() +
-  geom_line() +
-  facet_wrap(~ region, scales = "free")
-
-
-
-
-}
