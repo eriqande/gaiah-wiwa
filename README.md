@@ -1,6 +1,6 @@
 gaiah-wiwa
 ================
-24 January, 2017
+14 March, 2017
 
 -   [Preliminaries](#preliminaries)
 -   [Running the analyses](#running-the-analyses)
@@ -13,29 +13,13 @@ This is a repository that holds code to perform the analyses in Ruegg, Anderson,
 Preliminaries
 -------------
 
-First, you gotta get the `gaiah` R package. Hopefully that will be up on CRAN soon, but until then, get it from GitHub:
+First, you gotta get the `gaiah` R package. That is up on CRAN.
 
 ``` r
-devtools::install_github("eriqande/gaiah")
+install.packages("gaiah")
 ```
 
-By the way, this is known to run on `gaiah` commit c63cce5f63d49ce8010fd560cb2394df6fb96c8e.
-
-Just in case `devtools::install_github()` doesn't recursively get all the dependencies, you may as well install them all afresh like this:
-
-``` r
-install.packages(c("dplyr", 
-                   "geosphere", 
-                   "ggplot2", 
-                   "lazyeval", 
-                   "magrittr", 
-                   "maptools", 
-                   "raster", 
-                   "rgeos", 
-                   "sp", 
-                   "stringr", 
-                   "tidyr"))
-```
+By the way, this is known to run on `gaiah` version 0.0.2.
 
 Then make sure that you have all the necesary additional packages to run the analysis. Here they are, listed in their `library` calls:
 
