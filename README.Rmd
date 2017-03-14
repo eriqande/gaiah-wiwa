@@ -17,8 +17,10 @@ knitr::opts_chunk$set(
 ```
 
 This is a repository that holds code to perform the analyses in 
-Ruegg, Anderson, Harrigan, Paxton, Kelly, Moore, and Smith (2017) "New Title" 
-in ...
+Ruegg, Anderson, Harrigan, Paxton, Kelly, Moore, and Smith (2017) 
+"Genetic assignment with isotopes and habitat
+suitability (GAIAH), a migratory bird case study" 
+in _Methods in Ecology and Evolution_.
 
 ## Preliminaries
 

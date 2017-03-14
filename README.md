@@ -8,7 +8,7 @@ gaiah-wiwa
 -   [Making supplement 1](#making-supplement-1)
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-This is a repository that holds code to perform the analyses in Ruegg, Anderson, Harrigan, Paxton, Kelly, Moore, and Smith (2017) "New Title" in ...
+This is a repository that holds code to perform the analyses in Ruegg, Anderson, Harrigan, Paxton, Kelly, Moore, and Smith (2017) "Genetic assignment with isotopes and habitat suitability (GAIAH), a migratory bird case study" in *Methods in Ecology and Evolution*.
 
 Preliminaries
 -------------
