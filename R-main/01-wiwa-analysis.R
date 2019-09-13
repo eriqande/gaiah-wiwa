@@ -1,22 +1,26 @@
 
 
 #### LOAD LIBS ####
+library(tidyr)
 library(grid)
 library(gridExtra)
 library(raster)  # call this before dplyr so it doesn't mask select
 library(dplyr)
 library(stringr)
+library(readr)
+library(tibble)
 library(ggplot2)
 library(gaiah)
 library(forcats)
 library(tikzDevice)
 
+
 dir.create("outputs")
 
 #### CHOOSE WHETHER TO USE PRE-STORED VALUES OR RECOMPUTE THINGS####
-COMPUTE_ISO_POSTERIORS <- TRUE  # if false then it will just load these up from a cache
-REMAKE_ALL_SUPP_MAPS <- TRUE
-RECOMPUTE_PMGCD_GRID <- TRUE
+COMPUTE_ISO_POSTERIORS <- FALSE  # if false then it will just load these up from a cache
+REMAKE_ALL_SUPP_MAPS <- FALSE
+RECOMPUTE_PMGCD_GRID <- FALSE
 
 
 #### SOME HOUSEKEEPING VARIABLES ####
@@ -140,9 +144,9 @@ kbirds <- ref_birds %>%
   left_join(spr) %>%
   arrange(region, ShortPop, Short_Name) %>%
   mutate(clean_region = forcats::fct_recode(region,  # here are a few lines to make cleaner names for the Regions
-                                            clean_region_names
+                                            !!!clean_region_names
   )) %>%
-  mutate(clean_region = forcats::fct_relevel(clean_region, names(clean_region_names))) %>%
+  mutate(clean_region = forcats::fct_relevel(clean_region, !!!names(clean_region_names))) %>%
   mutate(Region = clean_region) %>%
   dplyr::select(ID, region, Region, ShortPop, Short_Name, lat, long, everything())
 
@@ -167,8 +171,8 @@ Mgen <- raster::stack(Mgen)
 assy <- breeding_wiwa_genetic_posteriors %>%
   left_join(kbirds %>% select(Short_Name, Region)) %>%
   mutate(ass_to_region = forcats::fct_recode(region,  # here are a few lines to make cleaner names for the Regions
-                                            clean_region_names)) %>%
-  mutate(ass_to_region = forcats::fct_relevel(ass_to_region, names(clean_region_names)))
+                                            !!!clean_region_names)) %>%
+  mutate(ass_to_region = forcats::fct_relevel(ass_to_region, !!!names(clean_region_names)))
 
 # now sort it so that it is organized first by the true Region
 # and within each it is sorted descending on the posterior prob of being
@@ -268,7 +272,7 @@ if(REMAKE_ALL_SUPP_MAPS == TRUE) {
 }
 
 
-
+if(FALSE) {  # leave this out of the wintering bird calcs
 #### COMPUTE THE MEAN POSTERIOR GREAT CIRCLE DISTANCES ####
 # First, we make a rasterStack, GCD, that gives the great circle distance between each reference birds true
 # location and every cell in the raster.
@@ -335,14 +339,42 @@ print(bplot)
 dev.off()
 system("cd outputs/figures/; pdflatex pmgcd_boxplots.tex;")
 
-#### DO CALCULATIONS FOR THE ACTUAL CIBOLA MIGRANTS ####
-# these are for all the migrants kristen had in the first paper
-MigGenAll <- genetic_posteriors2rasters(migrant_wiwa_genetic_posteriors, genetic_regions)  # this takes a minute or so
+}
 
-# these are just the Arizona birds that Kristina Sampled
+#### DO CALCULATIONS FOR THE ACTUAL WINTERING BIRDS ####
+
+# We are just going to drop the wintering_wiwa genetic posteriors in here
+# instead of using the migrant_wiwa_genetic_posteriors as we did for the 
+# MIEE paper.  
+
+# we get the GSI results
+winter_birds_gsi <- read_tsv("wintering-birds-data/wintering-birds-gsi-results.tsv")
+
+# then we turn it into a long format that has columns  ID, Short_Name, Collection_Date, NumberOfLoci, region, posterior
+# in the way that migrant_wiwa_genetic_posteriors does.
+wintering_wiwa_genetic_posteriors <- winter_birds_gsi %>%
+  rename(ID = X1, NumberOfLoci = LocNum) %>%
+  select(ID, Short_Name, Collection_Date, NumberOfLoci, AK.EastBC.AB:Eastern) %>%
+  gather(key = "region", value = "posterior", AK.EastBC.AB:Eastern) %>%
+  mutate(region = factor(region, levels = levels(migrant_wiwa_genetic_posteriors$region))) %>%
+  arrange(ID, region)
+
+# these are for all the migrants kristen had in the first paper
+#MigGenAll <- genetic_posteriors2rasters(migrant_wiwa_genetic_posteriors, genetic_regions)  # this takes a minute or so
+MigGenAll <- genetic_posteriors2rasters(wintering_wiwa_genetic_posteriors, genetic_regions)  # this takes a minute or so
+
+
+# Right here we read in the wintering birds data and prepare it to send
+# it into isotope_posterior_probs in place of the migrant_wiwa_isotopes
+winter_wiwa_isotopes <- read_csv("wintering-birds-data/WIWA_Isotope_SNP_winter.csv") %>%
+  select(Short_Name:State_Province) %>%
+  rename(ID = Short_Name, Isotope.Value = dDf, lat = Latitude, long = Longitude)
+
+# these are now the wintering birds
 MigIsoAll <-  isotope_posterior_probs(isoscape = isomap_job54152_prediction,
                                       ref_birds = ref_birds,
-                                      assign_birds = migrant_wiwa_isotopes,
+                                      #assign_birds = migrant_wiwa_isotopes,
+                                      assign_birds = winter_wiwa_isotopes,
                                       isoscape_pred_column = "predkrig",
                                       isoscape_sd_column = "stdkrig",
                                       self_assign = FALSE)
@@ -363,16 +395,89 @@ MigIso <- MigIso[MigBirds] %>% raster::stack()
 MigCombo <- comboize(MigGen, MigIso, Mhab_norm, 1, 1, 1)
 
 # identify where they seem to be headed, on the basis of genetics
-mig_gen_assignments <- migrant_wiwa_genetic_posteriors %>%
+mig_gen_assignments <- wintering_wiwa_genetic_posteriors %>%
   filter(ID %in% MigBirds) %>%
   group_by(ID) %>%
   arrange(desc(posterior)) %>%
   summarise(ass_reg = first(region, order_by = desc(posterior)),
             maxpost = first(posterior, order_by = desc(posterior)))
 
+
+
+#### AND HERE, WE COMPUTE THE POSTERIOR PROBABILITY FOR EACH GENETIC REGION ####
+
+# OK, what we are doing here is taking the Combo posteriors and summing them over
+# each genetic region.  This gives us the posterior that each bird comes from
+# each genetic region when using all the data (genetics, isotopes, habitat).  Cool.
+
+ComboPostos <- lapply(1:nlayers(MigCombo), function(i) {
+  cellStats(MigCombo[[i]] * genetic_regions, "sum") %>%
+    enframe(name = "region", value = "combined_posterior") %>%
+    mutate(region = names(genetic_regions)) %>%
+    mutate(Short_Name = names(MigCombo)[i])
+}) %>%
+  bind_rows() %>%
+  select(Short_Name, everything()) %>%
+  mutate(region = factor(region, levels = levels(wintering_wiwa_genetic_posteriors$region)))
+
+# and now we can join those to the genetics only values.  We only look at these
+# for the 209 winter_wiwa_isotope birds. About 6 of those don't have genetic
+# results, it appears.  Note that I want to sort these by the Max genetics-only posterior
+# so that we can quickly compare the relevant ones.  We also make a column that
+# tells us if the results have changed
+Compare_Wintering_Posteriors <- ComboPostos %>%
+  left_join(wintering_wiwa_genetic_posteriors, by = c("Short_Name", "region")) %>%
+  filter(!is.na(combined_posterior)) %>%
+  select(Short_Name, ID, Collection_Date, NumberOfLoci, region, posterior, combined_posterior) %>%
+  group_by(Short_Name) %>%
+  mutate(
+    assignment_changed = which.max(posterior) != which.max(combined_posterior),
+    max_genetics_only_posterior = max(posterior)
+  ) %>%
+  ungroup() %>%
+  arrange(max_genetics_only_posterior, Short_Name)
+
+# Now, write that out:
+write_csv(Compare_Wintering_Posteriors, "wintering-bird-outputs/compare-posteriors-with-and-without-isotopes.csv")
+
+
+#### HERE WE MAKE FIGURES FOR THE WINTERING BIRDS THAT HAD LOW ASSIGNMENTS ####
+
+Compare_Wintering_Posteriors %>% 
+  count(max_genetics_only_posterior, assignment_changed) %>% View()
+
+
+LowGenBirds <- 
+
+wmap <- get_wrld_simpl()
+dir.create("wintering-bird-outputs/birdmaps", recursive = TRUE)
+for(i in 1:nlayers(MigGen)) {
+  tmp <- comboize_and_fortify(MigGen[[i]], MigIso[[i]], Mhab_norm, iso_beta_levels = 1, hab_beta_levels = 1)
+  tmp$bird <- names(MigGen)[i];
+  
+  #latlong <- kbirds %>% filter(Short_Name == names(MigGen)[i])
+  
+  
+  g <- ggplot(mapping = aes(x=long, y = lat)) +
+    coord_fixed(1.3, xlim = c(-170, -50), ylim = c(33, 70)) +
+    geom_polygon(data = wmap, aes(group = group), fill = NA, color = "black", size = .05) +
+    geom_raster(data = tmp, mapping = aes(fill = prob), interpolate = TRUE) +
+    scale_fill_gradientn(colours = c("#EBEBEB", rainbow(7)), na.value = NA) +
+    theme_bw() +
+    facet_grid(bird ~ beta_vals) +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())  #+
+  #    geom_point(data = latlong, mapping = aes(x = long, y = lat), shape = 13, size = 2.5)
+  
+  ggsave(filename = paste("wintering-bird-outputs/birdmaps/bird_", names(MigGen)[i], ".pdf", sep = ""), height = 3, width = 19)
+  
+  print(i);
+}
+
+
+
 #### FOR THE CIBOLA MIGRANTS, COMPUTE THE POSTERIOR MEAN REMAINING MIGRATION DISTANCE ####
 # the lat and long are the same for all those birds:
-tmp <- migrant_wiwa_isotopes %>% group_by(lat, long) %>% tally()
+tmp <- winter_wiwa_isotopes %>% group_by(lat, long) %>% tally()
 ciblat <- tmp$lat[1]
 ciblong <- tmp$long[1]
 MigDistStack <- lapply(1:nlayers(MigCombo), function(x) great_circle_raster(wiwa_breed, ciblat, ciblong)) %>%
@@ -384,7 +489,7 @@ MigDistMeans <- raster::cellStats(MigCombo * MigDistStack, stat = sum)
 # make a data frame of that, and add the assignments and the collection dates on there
 mig_dist_df <- data_frame(ID = names(MigDistMeans), dist = MigDistMeans) %>%
   left_join(mig_gen_assignments) %>%
-  left_join(migrant_wiwa_genetic_posteriors %>% group_by(ID) %>% summarise(collect_date = min(Collection_Date))) %>%
+  left_join(wintering_wiwa_genetic_posteriors %>% group_by(ID) %>% summarise(collect_date = min(Collection_Date))) %>%
   mutate(collect_date = lubridate::dmy(collect_date),
          year = lubridate::year(collect_date),
          yearday = lubridate::yday(collect_date)) %>%

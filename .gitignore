@@ -2,7 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-
-
 outputs
 supp
+.DS_Store
+wintering-bird-outputs
+wintering-birds-data
