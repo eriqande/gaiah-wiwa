@@ -443,15 +443,22 @@ write_csv(Compare_Wintering_Posteriors, "wintering-bird-outputs/compare-posterio
 
 #### HERE WE MAKE FIGURES FOR THE WINTERING BIRDS THAT HAD LOW ASSIGNMENTS ####
 
+# all the switched assignments are on genetic posteriors less than 0.75.
 Compare_Wintering_Posteriors %>% 
-  count(max_genetics_only_posterior, assignment_changed) %>% View()
+  count(max_genetics_only_posterior, assignment_changed)
 
+# So, let's make maps for the 25 or so birds that have genetics posteriors < 0.90
+low_birds <- Compare_Wintering_Posteriors %>%
+  filter(max_genetics_only_posterior < 0.90) %>%
+  pull(Short_Name) %>%
+  unique()
 
-LowGenBirds <- 
+# get their indexes in the ComboMig brick
+low_bird_idxs <- which(names(MigCombo) %in% low_birds) 
 
 wmap <- get_wrld_simpl()
 dir.create("wintering-bird-outputs/birdmaps", recursive = TRUE)
-for(i in 1:nlayers(MigGen)) {
+for(i in low_bird_idxs) {
   tmp <- comboize_and_fortify(MigGen[[i]], MigIso[[i]], Mhab_norm, iso_beta_levels = 1, hab_beta_levels = 1)
   tmp$bird <- names(MigGen)[i];
   
