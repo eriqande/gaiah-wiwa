@@ -140,7 +140,7 @@ kbirds <- ref_birds %>%
   left_join(spr) %>%
   arrange(region, ShortPop, Short_Name) %>%
   mutate(clean_region = forcats::fct_recode(region,  # here are a few lines to make cleaner names for the Regions
-                                            clean_region_names
+                                            !!!clean_region_names
   )) %>%
   mutate(clean_region = forcats::fct_relevel(clean_region, names(clean_region_names))) %>%
   mutate(Region = clean_region) %>%
@@ -167,7 +167,7 @@ Mgen <- raster::stack(Mgen)
 assy <- breeding_wiwa_genetic_posteriors %>%
   left_join(kbirds %>% select(Short_Name, Region)) %>%
   mutate(ass_to_region = forcats::fct_recode(region,  # here are a few lines to make cleaner names for the Regions
-                                            clean_region_names)) %>%
+                                            !!!clean_region_names)) %>%
   mutate(ass_to_region = forcats::fct_relevel(ass_to_region, names(clean_region_names)))
 
 # now sort it so that it is organized first by the true Region
@@ -238,6 +238,8 @@ bfig <- grid.arrange(gList[[2]], top = textGrob("(b)", x = unit(0.1, "npc"), jus
 final_fig <- grid.arrange(afig, bfig, ncol = 1)
 
 ggsave(final_fig, filename = "outputs/figures/figure1.pdf", height = 10, width = 14)
+
+
 #### MAKE ALL THE INDIVIDUAL BIRD-MAP FIGURES FOR THE SUPPLEMENT ####
 if(REMAKE_ALL_SUPP_MAPS == TRUE) {
   wmap <- get_wrld_simpl()
@@ -280,6 +282,7 @@ GCD <- raster::stack(GCD)
 
 # compute the posterior mean values here
 genpmgc <- raster::cellStats(Mgen * GCD, stat = sum)
+names(genpmgc) <- names(Mgen)
 isopmgc <- raster::cellStats(Miso * GCD, stat = sum)
 combopmgc <- raster::cellStats(Combo * GCD, stat = sum)
 habpmgc <- raster::cellStats(GCD * Mhab_norm, stat = sum)
@@ -327,13 +330,16 @@ bplot <- ggplot(pmGCD_super, aes(y = pmgcd, x = data_type, fill = Region)) +
   geom_boxplot() +
   xlab("Data type used") +
   ylab("{\\large $S^\\mathrm{pm}_i$ (km)}") +
-  guides(fill=FALSE) +
+  guides(fill="none") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   theme(axis.title.y=element_text(margin=margin(0,11,0,0)))
 
 print(bplot)
 dev.off()
 system("cd outputs/figures/; pdflatex pmgcd_boxplots.tex;")
+
+
+
 
 #### DO CALCULATIONS FOR THE ACTUAL CIBOLA MIGRANTS ####
 # these are for all the migrants kristen had in the first paper
@@ -361,6 +367,7 @@ MigIso <- MigIso[MigBirds] %>% raster::stack()
 
 # and then comboize them
 MigCombo <- comboize(MigGen, MigIso, Mhab_norm, 1, 1, 1)
+names(MigCombo) <- names(MigGen)
 
 # identify where they seem to be headed, on the basis of genetics
 mig_gen_assignments <- migrant_wiwa_genetic_posteriors %>%
@@ -380,6 +387,7 @@ MigDistStack <- lapply(1:nlayers(MigCombo), function(x) great_circle_raster(wiwa
   raster::stack()
 
 MigDistMeans <- raster::cellStats(MigCombo * MigDistStack, stat = sum)
+names(MigDistMeans) = names(MigCombo)
 
 # make a data frame of that, and add the assignments and the collection dates on there
 mig_dist_df <- data_frame(ID = names(MigDistMeans), dist = MigDistMeans) %>%
@@ -389,7 +397,7 @@ mig_dist_df <- data_frame(ID = names(MigDistMeans), dist = MigDistMeans) %>%
          year = lubridate::year(collect_date),
          yearday = lubridate::yday(collect_date)) %>%
   mutate(clean_region = forcats::fct_recode(ass_reg,  # here are a few lines to make cleaner names for the Regions
-                                            clean_region_names
+                                            !!!clean_region_names
   )) %>%
   mutate(clean_region = forcats::fct_relevel(clean_region, names(clean_region_names))) %>%
   mutate(`Genetically-Assigned Region` = clean_region)
@@ -423,6 +431,8 @@ final_fig <- grid.arrange(top, bottom)
 ggsave(final_fig, filename = "outputs/figures/rem_mig_dist_fig.pdf", width = 5.5, height = 11)
 
 
+
+
 #### COMPUTE PMGCD OVER DIFFERENT VALUES OF THE BETAS ####
 # note that GCD was calculated above, but we will just recompute it here too:
 # First, we make a rasterStack, GCD, that gives the great circle distance between each reference birds true
@@ -445,6 +455,7 @@ if(RECOMPUTE_PMGCD_GRID == TRUE) {
         print(c(bgen, biso, bhab))
         combo_tmp <- comboize(Mgen, Miso, Mhab_norm, beta_gen = bgen, beta_iso = biso, beta_hab = bhab)
         combopmgc <- raster::cellStats(combo_tmp * GCD, stat = sum)
+        names(combopmgc) <- names(Mgen)
         dplyr::data_frame(ID = names(combopmgc), pmgcd = combopmgc)
       }) %>%
         dplyr::bind_rows(.id = "beta_hab")
@@ -472,7 +483,7 @@ region_mean_pmgcd <- kbirds %>%
 # put better names on it
 rmp2 <- region_mean_pmgcd %>%
   mutate(clean_region = forcats::fct_recode(region,  # here are a few lines to make cleaner names for the Regions
-                                            clean_region_names
+                                            !!!clean_region_names
   )) %>%
   mutate(clean_region = forcats::fct_relevel(clean_region, names(clean_region_names))) %>%
   mutate(Region = clean_region)
