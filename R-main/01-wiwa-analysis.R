@@ -189,9 +189,10 @@ ords <- assy2 %>%
 assy3 <- left_join(assy2, ords) %>%
   rename(`Region Assigned` = ass_to_region)
 
+# Remove individuals lacking a region or ordering index (prevents NA facets)
+assy3_clean <- assy3 %>% filter(!is.na(ind), !is.na(Region))
 
-
-g <- ggplot(assy3, aes(x = ind, y = posterior, fill = `Region Assigned`)) +
+g <- ggplot(assy3_clean, aes(x = ind, y = posterior, fill = `Region Assigned`)) +
   geom_bar(stat = "identity", position = "stack", width = 1.0) +
   scale_fill_manual(values = region_colors) +
   facet_grid(. ~ Region, drop=TRUE, space="free", scales="free") +
